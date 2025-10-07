@@ -5,82 +5,393 @@
 //  Created by Andrii Matsevytyi on 07.10.2025.
 //
 
+
 import SwiftUI
 import CoreData
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
+    
+    
+    @Environment(\.managedObjectContext) private var context
+    @StateObject private var databaseService: CoreDataTodoService
 
-    @FetchRequest(
-        sortDescriptors: [NSSortDescriptor(keyPath: \Item.timestamp, ascending: true)],
-        animation: .default)
-    private var items: FetchedResults<Item>
+        init() {
+            _databaseService = StateObject(wrappedValue: CoreDataTodoService(context: PersistenceController.shared.container.viewContext))
+        }
+    
+    @State private var showingAddTask = false
 
     var body: some View {
         NavigationView {
             List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp!, formatter: itemFormatter)")
-                    } label: {
-                        Text(item.timestamp!, formatter: itemFormatter)
+                ForEach(databaseService.tasks) { task in
+                    NavigationLink(destination: TaskDetailView(task: task, service: databaseService)
+                    ) {
+                        TodoTaskRowView(task: task, service: databaseService)
                     }
                 }
-                .onDelete(perform: deleteItems)
+                .onDelete(perform: deleteTask)
+                .id(databaseService.refreshID)
             }
+            .navigationTitle("Список справ")
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
+                    Button(action: { showingAddTask = true }) {
+                        Label("Додати", systemImage: "plus.circle.fill")
+                            .foregroundColor(.blue)
                     }
                 }
             }
-            Text("Select an item")
-        }
-    }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(context: viewContext)
-            newItem.timestamp = Date()
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            .sheet(isPresented: $showingAddTask) {
+                AddTaskView(service: databaseService)
             }
         }
     }
 
-    private func deleteItems(offsets: IndexSet) {
+    private func deleteTask(offsets: IndexSet) {
         withAnimation {
-            offsets.map { items[$0] }.forEach(viewContext.delete)
-
-            do {
-                try viewContext.save()
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
+            for index in offsets {
+                let task = databaseService.tasks[index]
+                do {
+                    try databaseService.deleteTask(task)
+                } catch {
+                    print("Error deleting task: \(error)")
+                }
             }
         }
     }
 }
 
-private let itemFormatter: DateFormatter = {
-    let formatter = DateFormatter()
-    formatter.dateStyle = .short
-    formatter.timeStyle = .medium
-    return formatter
-}()
+// MARK: - Todo Task Row View
+struct TodoTaskRowView: View {
+    let task: TodoTask
+    let service: CoreDataTodoService
 
+    var body: some View {
+        HStack {
+            // Toggle button
+            Button(action: toggleTask) {
+                Image(systemName: task.isDone ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(task.isDone ? .green : .gray)
+                    .font(.title2)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.name ?? "Без назви")
+                    .font(.headline)
+                    .strikethrough(task.isDone)
+                    .foregroundColor(task.isDone ? .secondary : .primary)
+
+                if let dueDate = task.dueDate {
+                    Text(dueDate, style: .date)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+
+                // Subtasks count
+                let subtasksSet = task.subtasks as? Set<TodoSubtask> ?? Set()
+                if !subtasksSet.isEmpty {
+                    let completedCount = subtasksSet.filter { $0.isDone }.count
+                    Text("\(completedCount)/\(subtasksSet.count) підзавдань")
+                        .font(.caption2)
+                        .foregroundColor(.blue)
+                }
+            }
+
+            Spacer()
+
+            // Status indicator
+            if task.isDone {
+                Image(systemName: "checkmark.seal.fill")
+                    .foregroundColor(.green)
+            } else if let dueDate = task.dueDate, dueDate < Date() {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundColor(.red)
+            }
+        }
+        .padding(.vertical, 2)
+    }
+
+    private func toggleTask() {
+        withAnimation(.easeInOut(duration: 0.2)) {
+            do {
+                try service.updateTask(task, name: nil, isDone: !task.isDone, dueDate: nil)
+            } catch {
+                print("Error updating task: \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - Add Task View
+struct AddTaskView: View {
+    let service: CoreDataTodoService
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var taskName = ""
+    @State private var dueDate = Date().addingTimeInterval(24*60*60) // Tomorrow by default
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Нове завдання") {
+                    TextField("Назва завдання", text: $taskName)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                    DatePicker("Термін виконання",
+                             selection: $dueDate,
+                             displayedComponents: [.date])
+                }
+
+                Section {
+                    Button("Створити завдання") {
+                        createTask()
+                    }
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(taskName.isEmpty ? Color.gray : Color.blue)
+                    .cornerRadius(10)
+                    .disabled(taskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+            .navigationTitle("Нове завдання")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Скасувати") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func createTask() {
+        let trimmedName = taskName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+
+        do {
+            try service.createTask(name: trimmedName, dueDate: dueDate)
+            dismiss()
+        } catch {
+            print("Error creating task: \(error)")
+        }
+    }
+}
+
+// MARK: - Task Detail View
+struct TaskDetailView: View {
+    let task: TodoTask
+    let service: CoreDataTodoService
+    @State private var showingAddSubtask = false
+    @State private var showingEditTask = false
+
+    var body: some View {
+        List {
+            Section("Завдання") {
+                HStack {
+                    Text("Статус:")
+                    Spacer()
+                    Text(task.isDone ? "Виконано" : "В процесі")
+                        .foregroundColor(task.isDone ? .green : .orange)
+                        .fontWeight(.semibold)
+                }
+
+                if let dueDate = task.dueDate {
+                    HStack {
+                        Text("Термін:")
+                        Spacer()
+                        Text(dueDate, style: .date)
+                            .foregroundColor(dueDate < Date() && !task.isDone ? .red : .secondary)
+                    }
+                }
+            }
+
+            Section("Підзавдання") {
+                let subtasksArray = (task.subtasks as? Set<TodoSubtask>)?.sorted {
+                    ($0.name ?? "") < ($1.name ?? "")
+                } ?? []
+
+                if subtasksArray.isEmpty {
+                    Text("Немає підзавдань")
+                        .foregroundColor(.secondary)
+                        .italic()
+                } else {
+                    ForEach(subtasksArray, id: \.id) { subtask in
+                        SubtaskRowView(subtask: subtask, service: service)
+                    }
+                    .onDelete(perform: deleteSubtask)
+                }
+
+                Button(action: { showingAddSubtask = true }) {
+                    Label("Додати підзавдання", systemImage: "plus.circle")
+                        .foregroundColor(.blue)
+                }
+            }
+        }
+        .navigationTitle(task.name ?? "Завдання")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("Редагувати") {
+                    showingEditTask = true
+                }
+            }
+        }
+        .sheet(isPresented: $showingEditTask) {
+            EditTaskView(task: task, service: service)
+        }
+        .sheet(isPresented: $showingAddSubtask) {
+            AddSubtaskView(task: task, service: service)
+        }
+    }
+
+    private func deleteSubtask(offsets: IndexSet) {
+        let subtasksArray = (task.subtasks as? Set<TodoSubtask>)?.sorted {
+            ($0.name ?? "") < ($1.name ?? "")
+        } ?? []
+
+        for index in offsets {
+            let subtask = subtasksArray[index]
+            do {
+                try service.deleteSubtask(subtask, from: task)
+            } catch {
+                print("Error deleting subtask: \(error)")
+            }
+        }
+    }
+}
+
+// MARK: - Subtask Row View
+struct SubtaskRowView: View {
+    let subtask: TodoSubtask
+    let service: CoreDataTodoService
+
+    var body: some View {
+        HStack {
+            Button(action: toggleSubtask) {
+                Image(systemName: subtask.isDone ? "checkmark.circle.fill" : "circle")
+                    .foregroundColor(subtask.isDone ? .green : .gray)
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Text(subtask.name ?? "")
+                .strikethrough(subtask.isDone)
+                .foregroundColor(subtask.isDone ? .secondary : .primary)
+
+            Spacer()
+        }
+    }
+
+    private func toggleSubtask() {
+        do {
+            try service.updateSubtask(subtask, name: nil, isDone: !subtask.isDone)
+        } catch {
+            print("Error updating subtask: \(error)")
+        }
+    }
+}
+
+// MARK: - Edit Task View
+struct EditTaskView: View {
+    let task: TodoTask
+    let service: CoreDataTodoService
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var taskName: String
+    @State private var dueDate: Date
+    @State private var isDone: Bool
+
+    init(task: TodoTask, service: CoreDataTodoService) {
+        self.task = task
+        self.service = service
+        self._taskName = State(initialValue: task.name ?? "")
+        self._dueDate = State(initialValue: task.dueDate ?? Date())
+        self._isDone = State(initialValue: task.isDone)
+    }
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Редагувати завдання") {
+                    TextField("Назва", text: $taskName)
+                    DatePicker("Термін", selection: $dueDate, displayedComponents: [.date])
+                    Toggle("Виконано", isOn: $isDone)
+                }
+            }
+            .navigationTitle("Редагувати")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Скасувати") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Зберегти") {
+                        saveTask()
+                    }
+                }
+            }
+        }
+    }
+
+    private func saveTask() {
+        do {
+            try service.updateTask(task, name: taskName, isDone: isDone, dueDate: dueDate)
+            dismiss()
+        } catch {
+            print("Error updating task: \(error)")
+        }
+    }
+}
+
+// MARK: - Add Subtask View
+struct AddSubtaskView: View {
+    let task: TodoTask
+    let service: CoreDataTodoService
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var subtaskName = ""
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section("Нове підзавдання") {
+                    TextField("Назва підзавдання", text: $subtaskName)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                }
+            }
+            .navigationTitle("Підзавдання")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Скасувати") { dismiss() }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button("Додати") {
+                        createSubtask()
+                    }
+                    .disabled(subtaskName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+
+    private func createSubtask() {
+        let trimmedName = subtaskName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty else { return }
+
+        do {
+            try service.createSubtask(name: trimmedName, for: task)
+            dismiss()
+        } catch {
+            print("Error creating subtask: \(error)")
+        }
+    }
+}
+
+// MARK: - Preview
 #Preview {
-    ContentView().environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    ContentView()
+        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
