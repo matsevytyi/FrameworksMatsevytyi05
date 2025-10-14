@@ -116,7 +116,7 @@ struct TodoTaskRowView: View {
     private func toggleTask() {
         withAnimation(.easeInOut(duration: 0.2)) {
             do {
-                try service.updateTask(task, name: nil, isDone: !task.isDone, dueDate: nil)
+                try service.updateTask(task, name: nil, isDone: !task.isDone, dueDate: nil, isNotify: !task.isNotify)
             } catch {
                 print("Error updating task: \(error)")
             }
@@ -172,7 +172,7 @@ struct AddTaskView: View {
         guard !trimmedName.isEmpty else { return }
 
         do {
-            try service.createTask(name: trimmedName, dueDate: dueDate)
+            try service.createTask(name: trimmedName, dueDate: dueDate, isNotify: true)
             dismiss()
         } catch {
             print("Error creating task: \(error)")
@@ -206,6 +206,13 @@ struct TaskDetailView: View {
                             .foregroundColor(dueDate < Date() && !task.isDone ? .red : .secondary)
                     }
                 }
+                
+                HStack {
+                    Text("Сповістити:")
+                    Spacer()
+                    Text(task.isNotify ? "Так" : "Ні")
+                }
+                
             }
 
             Section("Підзавдання") {
@@ -302,6 +309,7 @@ struct EditTaskView: View {
     @State private var taskName: String
     @State private var dueDate: Date
     @State private var isDone: Bool
+    @State private var isNotify: Bool
 
     init(task: TodoTask, service: CoreDataTodoService) {
         self.task = task
@@ -309,6 +317,7 @@ struct EditTaskView: View {
         self._taskName = State(initialValue: task.name ?? "")
         self._dueDate = State(initialValue: task.dueDate ?? Date())
         self._isDone = State(initialValue: task.isDone)
+        self._isNotify = State(initialValue: task.isNotify)
     }
 
     var body: some View {
@@ -318,6 +327,7 @@ struct EditTaskView: View {
                     TextField("Назва", text: $taskName)
                     DatePicker("Термін", selection: $dueDate, displayedComponents: [.date])
                     Toggle("Виконано", isOn: $isDone)
+                    Toggle("Сповістити:", isOn: $isNotify)
                 }
             }
             .navigationTitle("Редагувати")
@@ -337,7 +347,7 @@ struct EditTaskView: View {
 
     private func saveTask() {
         do {
-            try service.updateTask(task, name: taskName, isDone: isDone, dueDate: dueDate)
+            try service.updateTask(task, name: taskName, isDone: isDone, dueDate: dueDate, isNotify: isNotify)
             dismiss()
         } catch {
             print("Error updating task: \(error)")

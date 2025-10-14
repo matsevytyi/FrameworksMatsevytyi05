@@ -15,13 +15,6 @@ struct PersistenceController {
         let result = PersistenceController(inMemory: true)
         let viewContext = result.container.viewContext
         
-
-        let sampleTask = TodoTask(context: viewContext)
-        sampleTask.name = "Прикладве завдання"
-        sampleTask.isDone = false
-        sampleTask.dueDate = Date()
-        
-        try? viewContext.save()
         return result
     }()
 

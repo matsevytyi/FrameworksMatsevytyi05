@@ -26,34 +26,28 @@ class CoreDataTodoService: DBServiceProtocol, ObservableObject {
     }
 
     // MARK: - TodoTask CRUD Operations
-    func createTask(name: String, dueDate: Date) throws {
+    func createTask(name: String, dueDate: Date, isNotify: Bool?) throws {
         
         let task = TodoTask(context: context)
         task.name = name
         task.isDone = false
         task.dueDate = dueDate
+        task.isNotify = isNotify ?? false
 
         try saveContext()
         fetchTasks()
     }
 
-    func updateTask(_ task: TodoTask, name: String?, isDone: Bool?, dueDate: Date?) throws {
-        print("🔄 === DEBUG START ===")
-        print("BEFORE: task.isDone = \(task.isDone)")
-        print("Context hasChanges BEFORE: \(context.hasChanges)")
+    func updateTask(_ task: TodoTask, name: String?, isDone: Bool?, dueDate: Date?, isNotify: Bool?) throws {
         
+        if let name = name {task.name = name}
+        if let dueDate = dueDate {task.dueDate = dueDate}
         if let isDone = isDone { task.isDone = isDone }
-        
-        print("AFTER: task.isDone = \(task.isDone)")
-        print("Context hasChanges AFTER: \(context.hasChanges)")
+        if let isNotify = isNotify { task.isNotify = isNotify }
         
         try saveContext()
-        print("Save completed")
-        
-        print("Calling fetchTasks...")
+
         fetchTasks()
-        print("Tasks after fetch: \(tasks.count)")
-        print("=== DEBUG END ===")
     }
 
 
