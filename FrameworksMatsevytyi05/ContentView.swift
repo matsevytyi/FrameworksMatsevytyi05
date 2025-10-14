@@ -42,6 +42,14 @@ struct ContentView: View {
                     }
                 }
             }
+            .onAppear() {
+//                NotificationService.shared.requestAuthorization()
+//                NotificationService.shared.scheduleNotification(
+//                    id: "test1",
+//                    title: "Hello!",
+//                    dueDate: Date().addingTimeInterval(10)
+//                )
+            }
             .sheet(isPresented: $showingAddTask) {
                 AddTaskView(service: databaseService)
             }
@@ -141,7 +149,7 @@ struct AddTaskView: View {
 
                     DatePicker("Термін виконання",
                              selection: $dueDate,
-                             displayedComponents: [.date])
+                               displayedComponents: [.date, .hourAndMinute])
                 }
 
                 Section {
@@ -325,7 +333,7 @@ struct EditTaskView: View {
             Form {
                 Section("Редагувати завдання") {
                     TextField("Назва", text: $taskName)
-                    DatePicker("Термін", selection: $dueDate, displayedComponents: [.date])
+                    DatePicker("Термін", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
                     Toggle("Виконано", isOn: $isDone)
                     Toggle("Сповістити:", isOn: $isNotify)
                 }
@@ -338,12 +346,26 @@ struct EditTaskView: View {
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Зберегти") {
+                        updateNotification()
                         saveTask()
                     }
                 }
             }
         }
     }
+    
+    private func updateNotification() {
+        if NotificationService.shared.permissionPending { NotificationService.shared.requestAuthorization() }
+        if isNotify, dueDate > .now, isDone == false {
+            NotificationService.shared.scheduleNotification(id: taskName, title: taskName, dueDate: dueDate)
+            print("task scheduled")
+        } else {
+            NotificationService.shared.cancelNotification(id: taskName)
+            print("schedule canceled")
+        }
+
+    }
+
 
     private func saveTask() {
         do {
