@@ -11,15 +11,17 @@ import CoreData
 
 struct ContentView: View {
     
-    
     @Environment(\.managedObjectContext) private var context
     @StateObject private var databaseService: CoreDataTodoService
-
-        init() {
-            _databaseService = StateObject(wrappedValue: CoreDataTodoService(context: PersistenceController.shared.container.viewContext))
-        }
+    
+    @State private var observer: NSObjectProtocol?
     
     @State private var showingAddTask = false
+    @State private var showingNotificationsList = false
+
+    init() {
+        _databaseService = StateObject(wrappedValue: CoreDataTodoService(context: PersistenceController.shared.container.viewContext))
+    }
 
     var body: some View {
         NavigationView {
@@ -41,17 +43,33 @@ struct ContentView: View {
                             .foregroundColor(.blue)
                     }
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button(action: { showingNotificationsList = true }) {
+                        Label("Оновлення", systemImage: "exclamationmark.triangle.fill")
+                            .foregroundColor(.blue)
+                    }
+                }
             }
             .onAppear() {
-//                NotificationService.shared.requestAuthorization()
-//                NotificationService.shared.scheduleNotification(
-//                    id: "test1",
-//                    title: "Hello!",
-//                    dueDate: Date().addingTimeInterval(10)
-//                )
+                observer = NotificationCenter.default.addObserver(forName: Notification.Name("didAcceptInboxTodo"), object: nil, queue: .main) { notification in
+                        guard let info = notification.userInfo,
+                              let name = info["name"] as? String,
+                              let due = info["due"] as? Date else { return }
+                        print("passed data: \(name), \(due)")
+                        try? databaseService.createTask(name: name, dueDate: due, isNotify: true)
+                        }
+
+            }
+            .onDisappear(){
+            if let observer = observer {
+                            NotificationCenter.default.removeObserver(observer)
+                        }
             }
             .sheet(isPresented: $showingAddTask) {
                 AddTaskView(service: databaseService)
+            }
+            .sheet(isPresented: $showingNotificationsList) {
+                InboxView(notificationService: NotificationService.shared)
             }
         }
     }
@@ -139,6 +157,8 @@ struct AddTaskView: View {
 
     @State private var taskName = ""
     @State private var dueDate = Date().addingTimeInterval(24*60*60) // Tomorrow by default
+    @State private var isNotify = false
+    
 
     var body: some View {
         NavigationView {
@@ -150,6 +170,7 @@ struct AddTaskView: View {
                     DatePicker("Термін виконання",
                              selection: $dueDate,
                                displayedComponents: [.date, .hourAndMinute])
+                    Toggle("Сповістити", isOn: $isNotify)
                 }
 
                 Section {
@@ -180,11 +201,23 @@ struct AddTaskView: View {
         guard !trimmedName.isEmpty else { return }
 
         do {
-            try service.createTask(name: trimmedName, dueDate: dueDate, isNotify: true)
+            try service.createTask(name: trimmedName, dueDate: dueDate, isNotify: isNotify)
+            updateNotification()
             dismiss()
         } catch {
             print("Error creating task: \(error)")
         }
+    }
+    private func updateNotification() {
+        if NotificationService.shared.permissionPending { NotificationService.shared.requestAuthorization() }
+        if isNotify, dueDate > .now {
+            NotificationService.shared.scheduleNotification(id: taskName, title: taskName, dueDate: dueDate)
+            print("task scheduled")
+        } else {
+            NotificationService.shared.cancelNotification(id: taskName)
+            print("schedule canceled")
+        }
+
     }
 }
 

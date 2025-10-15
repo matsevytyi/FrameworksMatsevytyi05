@@ -12,8 +12,7 @@ struct FrameworksMatsevytyi05App: App {
     let persistenceController = PersistenceController.shared
     
     init() {
-        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared
-                NotificationService.shared.requestAuthorization()
+        prepareNotifications()
     }
 
     var body: some Scene {
@@ -22,10 +21,30 @@ struct FrameworksMatsevytyi05App: App {
                 .environment(\.managedObjectContext, persistenceController.container.viewContext)
         }
     }
-}
-class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
-    static let shared = NotificationDelegate()
-    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
-        completionHandler([.banner, .sound])
+    
+    private func prepareNotifications(){
+        
+        NotificationService.shared.requestAuthorization()
+        
+        UNUserNotificationCenter.current().delegate = NotificationDelegate.shared // for local&remote
+        
+        // for remote
+        let acceptAction = UNNotificationAction(
+            identifier: "AcceptTODO",
+            title: "Прийняти"
+        )
+        
+        let deleteAction = UNNotificationAction(
+            identifier: "CancelTODO",
+            title: "Відмінити"
+        )
+        
+        let category = UNNotificationCategory(
+            identifier: "HW6Category",
+            actions: [acceptAction, deleteAction],
+            intentIdentifiers: []
+        )
+        
+        UNUserNotificationCenter.current().setNotificationCategories([category])
     }
 }

@@ -8,11 +8,14 @@
 import Foundation
 import UserNotifications
 
-final class NotificationService {
+final class NotificationService: ObservableObject {
     static let shared = NotificationService()
     var permissionPending: Bool = true
     
-    private init() {}
+    @Published var inbox: [IncomingNotification] = []
+    
+    private init() {
+    }
     
     func requestAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
@@ -41,4 +44,5 @@ final class NotificationService {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [id])
         print("Скасовано сповіщення для \(id)")
     }
+    
 }
