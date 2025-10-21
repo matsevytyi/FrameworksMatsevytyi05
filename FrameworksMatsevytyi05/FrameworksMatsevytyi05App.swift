@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Security
 
 @main
 struct FrameworksMatsevytyi05App: App {
@@ -14,11 +15,14 @@ struct FrameworksMatsevytyi05App: App {
     
     init() {
         prepareNotifications()
+        print(getFromKeyChain())
+        addToKeyChain()
+        print(getFromKeyChain())
     }
 
     var body: some Scene {
         WindowGroup {
-            if authenticated {
+            if let _ = getFromKeyChain() {
                 ContentView()
                     .environment(\.managedObjectContext, persistenceController.container.viewContext)
             } else {
@@ -26,6 +30,57 @@ struct FrameworksMatsevytyi05App: App {
             }
         }
     }
+    
+    func getFromKeyChain() -> String?{
+        
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "username",
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        
+        var dataTypeRef: AnyObject?
+            if SecItemCopyMatching(query as CFDictionary, &dataTypeRef) == noErr,
+               let data = dataTypeRef as? Data {
+                return String(data: data, encoding: .utf8)
+            }
+            return nil
+    }
+    
+    func addToKeyChain() {
+
+        var query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: "username",
+            kSecValueData as String: "password".data(using: .utf8)!
+        ]
+
+        let attributes: [String: Any] = [
+            kSecValueData as String: "password".data(using: .utf8)!
+        ]
+
+        let status: OSStatus
+        if SecItemCopyMatching(query as CFDictionary, nil) == errSecSuccess {
+            status = SecItemUpdate(query as CFDictionary, attributes as CFDictionary)
+        } else {
+            var newItem = query
+            newItem[kSecValueData as String] = "password".data(using: .utf8)!
+            status = SecItemAdd(newItem as CFDictionary, nil)
+        }
+
+        if status == errSecSuccess {
+            print("query saved")
+        } else {
+            print("Error saving: \(status)")
+        }
+    }
+
+    
+//    private func checkLogin(){
+//        let username = KeychainService.shared.get(key: "username"),
+//        let password = KeychainService.shared.get(key: "password")
+//    }
     
     private func prepareNotifications(){
         
