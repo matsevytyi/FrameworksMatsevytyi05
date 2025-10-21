@@ -19,8 +19,12 @@ import CoreData
 
 
 struct LoginView: View {
+    
     @State private var posta = ""
     @State private var password = ""
+    
+    @EnvironmentObject var authService: AuthService
+    @State private var errorMessage: String?
 
     var body: some View {
         VStack(spacing: 20) {
@@ -37,16 +41,22 @@ struct LoginView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .padding(.horizontal)
 
-            Button(action: {
-                print("Лог атемпт \(posta) / \(password)")
-            }) {
-                Text("Login")
-                    .foregroundColor(.white)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color.blue)
-                    .cornerRadius(10)
+            Button("Login") {
+                print("Лог with \(posta), \(password)")
+                Task {
+                    let success = await authService.login(poshta: posta, password: password)
+                    if !success {
+                        errorMessage = "Invalid credentials"
+                    } else {
+                        authService.isAuthenticated = true
+                    }
+                }
             }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(25)
         }
         .padding()
     }
