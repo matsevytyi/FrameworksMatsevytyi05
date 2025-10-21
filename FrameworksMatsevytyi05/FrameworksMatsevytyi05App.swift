@@ -10,6 +10,7 @@ import SwiftUI
 @main
 struct FrameworksMatsevytyi05App: App {
     let persistenceController = PersistenceController.shared
+    let authenticated = false
     
     init() {
         prepareNotifications()
@@ -17,8 +18,12 @@ struct FrameworksMatsevytyi05App: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environment(\.managedObjectContext, persistenceController.container.viewContext)
+            if authenticated {
+                ContentView()
+                    .environment(\.managedObjectContext, persistenceController.container.viewContext)
+            } else {
+                LoginView()
+            }
         }
     }
     

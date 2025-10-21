@@ -9,6 +9,49 @@
 import SwiftUI
 import CoreData
 
+// MARK: - Preview
+#Preview {
+//    ContentView()
+//        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+    LoginView()
+}
+
+
+
+struct LoginView: View {
+    @State private var posta = ""
+    @State private var password = ""
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Схоже ви не авторизовані. Введіть номер і пароль банківської картки і не надокучатиму вам наступного разу :)")
+                .font(.title)
+                .bold()
+
+            TextField("Пошта", text: $posta)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .typesettingLanguage(Locale.Language.init(identifier: "uk"))
+                .padding(.horizontal)
+
+            SecureField("Пароль", text: $password)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.horizontal)
+
+            Button(action: {
+                print("Лог атемпт \(posta) / \(password)")
+            }) {
+                Text("Login")
+                    .foregroundColor(.white)
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.blue)
+                    .cornerRadius(10)
+            }
+        }
+        .padding()
+    }
+}
+
 struct ContentView: View {
     
     @Environment(\.managedObjectContext) private var context
@@ -453,10 +496,4 @@ struct AddSubtaskView: View {
             print("Error creating subtask: \(error)")
         }
     }
-}
-
-// MARK: - Preview
-#Preview {
-    ContentView()
-        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
 }
