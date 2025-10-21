@@ -28,7 +28,7 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
             
             NotificationCenter.default.post(name: Notification.Name("didReceiveIncomingNotification"),
                                             object: nil,
-                                            userInfo: ["id": id, "name": name, "due": due])
+                                            userInfo: ["id": id, "name": name, "due": due, "private": false])
             
             switch response.actionIdentifier {
             case "AcceptTODO":
@@ -39,7 +39,7 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
                 NotificationCenter.default.post(
                         name: Notification.Name("didAcceptInboxTodo"),
                         object: nil,
-                        userInfo: ["id": id,"name": name,"due": due]
+                        userInfo: ["id": id,"name": name,"due": due, "private": false]
                     )
                 
             case "CancelTODO":

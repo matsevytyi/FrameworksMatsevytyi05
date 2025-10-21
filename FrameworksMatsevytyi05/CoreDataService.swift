@@ -26,24 +26,26 @@ class CoreDataTodoService: DBServiceProtocol, ObservableObject {
     }
 
     // MARK: - TodoTask CRUD Operations
-    func createTask(name: String, dueDate: Date, isNotify: Bool?) throws {
+    func createTask(name: String, dueDate: Date, isNotify: Bool?, isPrivate: Bool?) throws {
         
         let task = TodoTask(context: context)
         task.name = name
         task.isDone = false
         task.dueDate = dueDate
         task.isNotify = isNotify ?? false
+        task.isPrivate = isPrivate ?? false
 
         try saveContext()
         fetchTasks()
     }
 
-    func updateTask(_ task: TodoTask, name: String?, isDone: Bool?, dueDate: Date?, isNotify: Bool?) throws {
+    func updateTask(_ task: TodoTask, name: String?, isDone: Bool?, dueDate: Date?, isNotify: Bool?, isPrivate: Bool?) throws {
         
         if let name = name {task.name = name}
         if let dueDate = dueDate {task.dueDate = dueDate}
         if let isDone = isDone { task.isDone = isDone }
         if let isNotify = isNotify { task.isNotify = isNotify }
+        if let isPrivate = isPrivate { task.isPrivate = isPrivate }
         
         try saveContext()
 

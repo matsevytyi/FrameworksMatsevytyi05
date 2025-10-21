@@ -107,9 +107,11 @@ struct ContentView: View {
                 observer = NotificationCenter.default.addObserver(forName: Notification.Name("didAcceptInboxTodo"), object: nil, queue: .main) { notification in
                         guard let info = notification.userInfo,
                               let name = info["name"] as? String,
-                              let due = info["due"] as? Date else { return }
+                              let due = info["due"] as? Date,
+                              let isPrivate = info["private"] as? Bool
+                    else { return }
                         print("passed data: \(name), \(due)")
-                        try? databaseService.createTask(name: name, dueDate: due, isNotify: true)
+                    try? databaseService.createTask(name: name, dueDate: due, isNotify: true, isPrivate: isPrivate)
                         }
 
             }
@@ -195,7 +197,7 @@ struct TodoTaskRowView: View {
     private func toggleTask() {
         withAnimation(.easeInOut(duration: 0.2)) {
             do {
-                try service.updateTask(task, name: nil, isDone: !task.isDone, dueDate: nil, isNotify: !task.isNotify)
+                try service.updateTask(task, name: nil, isDone: !task.isDone, dueDate: nil, isNotify: !task.isNotify, isPrivate: task.isPrivate)
             } catch {
                 print("Error updating task: \(error)")
             }
@@ -211,6 +213,7 @@ struct AddTaskView: View {
     @State private var taskName = ""
     @State private var dueDate = Date().addingTimeInterval(24*60*60) // Tomorrow by default
     @State private var isNotify = false
+    @State private var isPrivate: Bool = false
     
 
     var body: some View {
@@ -224,6 +227,7 @@ struct AddTaskView: View {
                              selection: $dueDate,
                                displayedComponents: [.date, .hourAndMinute])
                     Toggle("Сповістити", isOn: $isNotify)
+                    Toggle("Захищена (біометрія)", isOn: $isPrivate)
                 }
 
                 Section {
@@ -254,7 +258,7 @@ struct AddTaskView: View {
         guard !trimmedName.isEmpty else { return }
 
         do {
-            try service.createTask(name: trimmedName, dueDate: dueDate, isNotify: isNotify)
+            try service.createTask(name: trimmedName, dueDate: dueDate, isNotify: isNotify, isPrivate: isPrivate)
             updateNotification()
             dismiss()
         } catch {
@@ -305,6 +309,12 @@ struct TaskDetailView: View {
                     Text("Сповістити:")
                     Spacer()
                     Text(task.isNotify ? "Так" : "Ні")
+                }
+                
+                HStack {
+                    Text("Приватність:")
+                    Spacer()
+                    Text(task.isPrivate ? "Секретна" : "Звичайна")
                 }
                 
             }
@@ -404,6 +414,7 @@ struct EditTaskView: View {
     @State private var dueDate: Date
     @State private var isDone: Bool
     @State private var isNotify: Bool
+    @State private var isPrivate: Bool
 
     init(task: TodoTask, service: CoreDataTodoService) {
         self.task = task
@@ -412,6 +423,7 @@ struct EditTaskView: View {
         self._dueDate = State(initialValue: task.dueDate ?? Date())
         self._isDone = State(initialValue: task.isDone)
         self._isNotify = State(initialValue: task.isNotify)
+        self._isPrivate = State(initialValue: task.isPrivate)
     }
 
     var body: some View {
@@ -422,6 +434,7 @@ struct EditTaskView: View {
                     DatePicker("Термін", selection: $dueDate, displayedComponents: [.date, .hourAndMinute])
                     Toggle("Виконано", isOn: $isDone)
                     Toggle("Сповістити:", isOn: $isNotify)
+                    Toggle("Захищена (біометрія)", isOn: $isPrivate)
                 }
             }
             .navigationTitle("Редагувати")
@@ -455,7 +468,7 @@ struct EditTaskView: View {
 
     private func saveTask() {
         do {
-            try service.updateTask(task, name: taskName, isDone: isDone, dueDate: dueDate, isNotify: isNotify)
+            try service.updateTask(task, name: taskName, isDone: isDone, dueDate: dueDate, isNotify: isNotify, isPrivate: isPrivate)
             dismiss()
         } catch {
             print("Error updating task: \(error)")

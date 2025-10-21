@@ -14,8 +14,8 @@ protocol DBServiceProtocol: ObservableObject {
     var tasksPublisher: Published<[TodoTask]>.Publisher { get }
 
     // TodoTask CRUD
-    func createTask(name: String, dueDate: Date, isNotify: Bool?) throws
-    func updateTask(_ task: TodoTask, name: String?, isDone: Bool?, dueDate: Date?, isNotify: Bool?) throws
+    func createTask(name: String, dueDate: Date, isNotify: Bool?, isPrivate: Bool?) throws
+    func updateTask(_ task: TodoTask, name: String?, isDone: Bool?, dueDate: Date?, isNotify: Bool?, isPrivate: Bool?) throws
     func deleteTask(_ task: TodoTask) throws
     func fetchTasks()
 

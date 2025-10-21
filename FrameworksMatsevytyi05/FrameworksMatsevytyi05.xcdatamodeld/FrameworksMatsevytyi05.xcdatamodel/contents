@@ -10,6 +10,7 @@
         <attribute name="dueDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="isDone" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="isNotify" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="isPrivate" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="name" optional="YES" attributeType="String"/>
         <relationship name="subtasks" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="TodoSubtask" inverseName="task" inverseEntity="TodoSubtask"/>
     </entity>

@@ -35,7 +35,9 @@ class AuthService: ObservableObject {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try? JSONEncoder().encode(["poshta": poshta, "password": password])
+        request.httpBody = try? JSONEncoder().encode(["username": poshta, "password": password])
+        
+        print("request with '\(poshta)' / '\(password)\'")
 
         do {
             let (data, response) = try await URLSession.shared.data(for: request)
