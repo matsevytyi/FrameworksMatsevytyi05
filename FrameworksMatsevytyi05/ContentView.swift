@@ -159,10 +159,17 @@ struct TodoTaskRowView: View {
             .buttonStyle(PlainButtonStyle())
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(task.name ?? "Без назви")
-                    .font(.headline)
-                    .strikethrough(task.isDone)
-                    .foregroundColor(task.isDone ? .secondary : .primary)
+                if task.isPrivate {
+                    Text("[XXX]")
+                        .font(.headline)
+                        .strikethrough(task.isDone)
+                        .foregroundColor(task.isDone ? .secondary : .primary)
+                } else {
+                    Text(task.name ?? "Без назви")
+                        .font(.headline)
+                        .strikethrough(task.isDone)
+                        .foregroundColor(task.isDone ? .secondary : .primary)
+                }
 
                 if let dueDate = task.dueDate {
                     Text(dueDate, style: .date)
@@ -171,12 +178,14 @@ struct TodoTaskRowView: View {
                 }
 
                 // Subtasks count
-                let subtasksSet = task.subtasks as? Set<TodoSubtask> ?? Set()
-                if !subtasksSet.isEmpty {
-                    let completedCount = subtasksSet.filter { $0.isDone }.count
-                    Text("\(completedCount)/\(subtasksSet.count) підзавдань")
-                        .font(.caption2)
-                        .foregroundColor(.blue)
+                if !task.isPrivate {
+                    let subtasksSet = task.subtasks as? Set<TodoSubtask> ?? Set()
+                    if !subtasksSet.isEmpty {
+                        let completedCount = subtasksSet.filter { $0.isDone }.count
+                        Text("\(completedCount)/\(subtasksSet.count) підзавдань")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
                 }
             }
 
@@ -197,7 +206,7 @@ struct TodoTaskRowView: View {
     private func toggleTask() {
         withAnimation(.easeInOut(duration: 0.2)) {
             do {
-                try service.updateTask(task, name: nil, isDone: !task.isDone, dueDate: nil, isNotify: !task.isNotify, isPrivate: task.isPrivate)
+                try service.updateTask(task, name: nil, isDone: !task.isDone, dueDate: nil, isNotify: !task.isNotify, isPrivate: !task.isPrivate)
             } catch {
                 print("Error updating task: \(error)")
             }
@@ -287,34 +296,40 @@ struct TaskDetailView: View {
 
     var body: some View {
         List {
-            Section("Завдання") {
-                HStack {
-                    Text("Статус:")
-                    Spacer()
-                    Text(task.isDone ? "Виконано" : "В процесі")
-                        .foregroundColor(task.isDone ? .green : .orange)
-                        .fontWeight(.semibold)
+            if task.isPrivate && !KeyChainAccessService.shared.biometryApproved {
+                Button(action: KeyChainAccessService.shared.verifyLocalBiometry) {
+                    Text("Підтвердьте особистість щоб продовжити")
                 }
-
-                if let dueDate = task.dueDate {
+            } else {
+                Section("Завдання") {
                     HStack {
-                        Text("Термін:")
+                        Text("Статус:")
                         Spacer()
-                        Text(dueDate, style: .date)
-                            .foregroundColor(dueDate < Date() && !task.isDone ? .red : .secondary)
+                        Text(task.isDone ? "Виконано" : "В процесі")
+                            .foregroundColor(task.isDone ? .green : .orange)
+                            .fontWeight(.semibold)
                     }
-                }
-                
-                HStack {
-                    Text("Сповістити:")
-                    Spacer()
-                    Text(task.isNotify ? "Так" : "Ні")
-                }
-                
-                HStack {
-                    Text("Приватність:")
-                    Spacer()
-                    Text(task.isPrivate ? "Секретна" : "Звичайна")
+                    
+                    if let dueDate = task.dueDate {
+                        HStack {
+                            Text("Термін:")
+                            Spacer()
+                            Text(dueDate, style: .date)
+                                .foregroundColor(dueDate < Date() && !task.isDone ? .red : .secondary)
+                        }
+                    }
+                    
+                    HStack {
+                        Text("Сповістити:")
+                        Spacer()
+                        Text(task.isNotify ? "Так" : "Ні")
+                    }
+                    
+                    HStack {
+                        Text("Приватність:")
+                        Spacer()
+                        Text(task.isPrivate ? "Секретна" : "Звичайна")
+                    }
                 }
                 
             }

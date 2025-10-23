@@ -29,7 +29,15 @@ class CoreDataTodoService: DBServiceProtocol, ObservableObject {
     func createTask(name: String, dueDate: Date, isNotify: Bool?, isPrivate: Bool?) throws {
         
         let task = TodoTask(context: context)
-        task.name = name
+        
+        if task.isPrivate {
+            let id = task.objectID.uriRepresentation().absoluteString
+                KeyChainAccessService.shared.saveSecureTask(id: id, text: name)
+                task.name = "[XXX]"
+        } else {
+            task.name = name
+        }
+        
         task.isDone = false
         task.dueDate = dueDate
         task.isNotify = isNotify ?? false
@@ -41,7 +49,17 @@ class CoreDataTodoService: DBServiceProtocol, ObservableObject {
 
     func updateTask(_ task: TodoTask, name: String?, isDone: Bool?, dueDate: Date?, isNotify: Bool?, isPrivate: Bool?) throws {
         
-        if let name = name {task.name = name}
+        if let name = name {
+            if task.isPrivate {
+                let id = task.objectID.uriRepresentation().absoluteString
+                if name != "[XXX]" {
+                    KeyChainAccessService.shared.saveSecureTask(id: id, text: name)
+                }
+                task.name = "[XXX]"
+            } else {
+                task.name = KeyChainAccessService.shared.getSecureTask(id: task.objectID.uriRepresentation().absoluteString) ?? name
+            }
+        }
         if let dueDate = dueDate {task.dueDate = dueDate}
         if let isDone = isDone { task.isDone = isDone }
         if let isNotify = isNotify { task.isNotify = isNotify }
@@ -54,6 +72,10 @@ class CoreDataTodoService: DBServiceProtocol, ObservableObject {
 
 
     func deleteTask(_ task: TodoTask) throws {
+        
+        if task.isPrivate {
+            KeyChainAccessService.shared.deleteSecureTask(id: task.objectID.uriRepresentation().absoluteString)
+        }
         
         context.delete(task)
         try saveContext()
